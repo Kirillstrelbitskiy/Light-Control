@@ -1,23 +1,29 @@
 #!/usr/bin/env python3
-import os, signal, gi, serial
+import os, signal, gi, serial, pymysql
+from pymysql.cursors import DictCursor
 
+connection = pymysql.connect(
+    host='own-server.zzz.com.ua',
+    user='Kirill',
+    password='My271320!Ps_21Qt',
+    db='kirillstrelok_1',
+)
+ 
 gi.require_version('Gtk', '3.0')
 gi.require_version('AppIndicator3', '0.1')
+gi.require_version('Notify', '0.7')
 
 from gi.repository import Gtk, AppIndicator3
 from gi.repository import Notify as notify
 
-folder_with_icons = "/home/kirill/.light_control/icons"
+folder_with_icons = "/home/kirill/projects/Light-Control/pc_part/icons"
 lamp_on_icon = folder_with_icons + "/lamp_on.png"
 lamp_off_icon = folder_with_icons + "/lamp_off.png"
 
-arduino = serial.Serial('/dev/ttyUSB0', 9600, timeout=.1)
-arduino.write(b'0') # initialize lamp with off state
-
-class Indicator():
-    def __init__(self):
-        self.app = 'show_proc'
-
+class Indicator(object):
+    def __init__(self, name):
+        self.app = name
+        
         self.light_switch = AppIndicator3.Indicator.new(self.app, lamp_off_icon, AppIndicator3.IndicatorCategory.OTHER)
         self.light_switch.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         self.light_switch.set_menu(self.create_menu())
@@ -38,12 +44,18 @@ class Indicator():
 
     def turn_on(self, source):
         self.light_switch.set_icon(lamp_on_icon)
-        arduino.write(b'1') # command changing lamp state
+        with connection:
+            db_cursor = connection.cursor()
+            db_cursor.execute("UPDATE sh_smart_home SET state=1 WHERE id=1")
 
     def turn_off(self, source):
         self.light_switch.set_icon(lamp_off_icon)
-        arduino.write(b'0') # command changing lamp state
+        with connection:
+            db_cursor = connection.cursor()
+            db_cursor.execute("UPDATE sh_smart_home SET state=0 WHERE id=1")
 
-Indicator()
+Indicator('light')
+
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 Gtk.main()
+connection.close()
